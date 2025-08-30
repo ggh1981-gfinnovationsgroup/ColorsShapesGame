@@ -1,0 +1,21 @@
+{
+  "root": true,
+  "extends": [
+    "@expo/eslint-config-typescript",
+    "eslint:recommended",
+    "@typescript-eslint/recommended",
+    "prettier"
+  ],
+  "plugins": ["prettier"],
+  "rules": {
+    "prettier/prettier": "error",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/no-explicit-any": "warn",
+    "react-native/no-inline-styles": "off"
+  },
+  "env": {
+    "node": true,
+    "jest": true
+  }
+}
