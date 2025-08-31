@@ -1,35 +1,52 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
-import TestAzureAI from './src/components/TestAzureAI';
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '@/types';
 
-export default function App() {
+// Importar todas las pantallas
+import SplashScreen from '@/screens/SplashScreen';
+import OnboardingScreen from '@/screens/OnboardingScreen';
+import HomeScreen from '@/screens/HomeScreen';
+import GameScreen from '@/screens/GameScreenFixed';
+import ProgressScreen from '@/screens/ProgressScreen';
+import SettingsScreen from '@/screens/SettingsScreen';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const App: React.FC = () => {
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>🎨 Colors & Shapes</Text>
-      <Text style={styles.subtitle}>Demo de Azure OpenAI</Text>
-      <TestAzureAI />
-      <StatusBar style="auto" />
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator 
+        initialRouteName="Splash"
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}
+      >
+        <Stack.Screen 
+          name="Splash" 
+          component={SplashScreen} 
+        />
+        <Stack.Screen 
+          name="Onboarding" 
+          component={OnboardingScreen} 
+        />
+        <Stack.Screen
+          name="Home"
+          component={HomeScreen}
+        />
+                <Stack.Screen name="Game" component={GameScreen} />
+        <Stack.Screen
+          name="Progress"
+          component={ProgressScreen}
+        />
+        <Stack.Screen 
+          name="Settings" 
+          component={SettingsScreen} 
+        />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingTop: 50,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#2c3e50',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#7f8c8d',
-    marginBottom: 20,
-  },
-});
+export default App;

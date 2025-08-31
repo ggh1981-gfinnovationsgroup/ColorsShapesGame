@@ -49,12 +49,17 @@ export interface User {
   subscriptionType: 'free' | 'premium';
 }
 
-// Navigation types
+// Tipos de navegación
 export type RootStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
   Home: undefined;
-  Game: { gameType: string; childId: string };
-  Progress: { childId: string };
+  Game: {
+    gameType: string;
+    childId: string;
+  };
+  Progress: {
+    childId: string;
+  };
   Settings: undefined;
 };
