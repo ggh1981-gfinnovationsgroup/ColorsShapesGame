@@ -7,7 +7,7 @@ import type { RootStackParamList } from '@/types';
 import SplashScreen from '@/screens/SplashScreen';
 import OnboardingScreen from '@/screens/OnboardingScreen';
 import HomeScreen from '@/screens/HomeScreen';
-import GameScreen from '@/screens/GameScreenFixed';
+import GameScreen from '@/screens/GameScreen';
 import ProgressScreen from '@/screens/ProgressScreen';
 import SettingsScreen from '@/screens/SettingsScreen';
 

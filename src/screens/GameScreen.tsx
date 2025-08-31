@@ -15,6 +15,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../types';
 import { useGameEngine } from '../hooks/useGameEngine';
 import { useAppStore } from '../store';
+import * as Speech from 'expo-speech';
 
 type GameNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Game'>;
 type GameRouteProp = RouteProp<RootStackParamList, 'Game'>;
@@ -59,6 +60,35 @@ const GameScreen: React.FC = () => {
   const [gameColors, setGameColors] = useState<Color[]>([]);
   const [celebration, setCelebration] = useState(false);
   const [animatedValue] = useState(new Animated.Value(1));
+  const [isReadingInstruction, setIsReadingInstruction] = useState(false);
+
+  // Text-to-Speech function for bilingual instructions
+  const speakColorInstruction = async (color: Color) => {
+    setIsReadingInstruction(true);
+    
+    try {
+      // First in Spanish
+      await Speech.speak(`¡Encuentra el ${color.nameEs}!`, {
+        language: 'es-ES',
+        pitch: 1.1,
+        rate: 0.8,
+      });
+      
+      // Small pause
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Then in English
+      await Speech.speak(`Find the ${color.name}!`, {
+        language: 'en-US', 
+        pitch: 1.1,
+        rate: 0.8,
+      });
+    } catch (error) {
+      console.warn('TTS Error:', error);
+    } finally {
+      setIsReadingInstruction(false);
+    }
+  };
 
   // Get age-appropriate number of colors
   const getColorCount = () => {
@@ -79,6 +109,11 @@ const GameScreen: React.FC = () => {
     
     setTargetColor(randomTarget);
     setGameColors(roundColors.sort(() => Math.random() - 0.5));
+    
+    // Speak the instruction after a short delay to let visuals load
+    setTimeout(() => {
+      speakColorInstruction(randomTarget);
+    }, 800);
   };
 
   // Handle color tap
@@ -174,8 +209,8 @@ const GameScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <SafeAreaView style={[styles.container, { backgroundColor: targetColor.hex }]}>
+      {/* Header with semi-transparent background */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.scoreText}>Puntos: {gameState.score}</Text>
@@ -190,15 +225,19 @@ const GameScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Game Area */}
+      {/* Game Area with the color instruction */}
       <View style={styles.gameArea}>
-        {/* Target Color */}
-        <View style={styles.targetSection}>
-          <Text style={styles.instructionText}>Toca el color:</Text>
-          <View style={styles.targetColorContainer}>
-            <View style={[styles.targetColor, { backgroundColor: targetColor.hex }]} />
-            <Text style={styles.targetColorName}>{targetColor.nameEs}</Text>
-          </View>
+        {/* Instruction Text */}
+        <View style={styles.instructionSection}>
+          <Text style={styles.bigInstructionText}>
+            ¡Encuentra el {targetColor.nameEs}!
+          </Text>
+          <Text style={styles.englishInstructionText}>
+            Find the {targetColor.name}!
+          </Text>
+          {isReadingInstruction && (
+            <Text style={styles.audioIndicator}>🔊 Escucha...</Text>
+          )}
         </View>
 
         {/* Color Grid */}
@@ -288,9 +327,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderBottomWidth: 1,
-    borderBottomColor: '#ecf0f1',
+    borderBottomColor: 'rgba(236, 240, 241, 0.5)',
   },
   headerLeft: {
     alignItems: 'flex-start',
@@ -483,6 +522,39 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // New styles for improved "Tap the Color" design
+  instructionSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  bigInstructionText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  englishInstructionText: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#7f8c8d',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  audioIndicator: {
+    fontSize: 16,
+    color: '#3498db',
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
 
