@@ -1,352 +1,440 @@
-/**
- * CrewAI-Inspired Multi-Agent System for Colors & Shapes
- * 
- * This implements the core concepts of CrewAI but in TypeScript
- * for React Native compatibility:
- * - Agents with specific roles and goals
- * - Task delegation and orchestration  
- * - Memory and context sharing
- * - Tool usage coordination
- * 
- * Inspired by: https://github.com/joaomdmoura/crewAI
- */
+// src/agents/crew.ts - CrewAI-Inspired Multi-Agent Educational System
+import { BaseAgent, Task, AgentRole, TaskType } from './types';
+import { LearningCoach } from './learningCoach';
+import { MotivationAgent } from './motivationAgent';
+import { AnalyticsAgent } from './analyticsAgent';
+import { LanguageAgent } from './languageAgent';
+import { MemoryAgent } from './memoryAgent';
 
-import { Agent, AgentRole, Task, AgentContext, AgentMemory } from './types';
-import { azureOpenAIService } from '../services/azureOpenAIFixed';
-
-export interface CrewConfig {
-  agents: Agent[];
-  memory: AgentMemory;
+interface CrewConfig {
   verbose?: boolean;
   maxIterations?: number;
+  enableMemory?: boolean;
+  fallbackStrategy?: 'graceful' | 'strict';
 }
 
-export interface TaskResult {
+interface TaskExecution {
+  taskId: string;
+  agentRole: AgentRole;
+  startTime: number;
+  endTime?: number;
   success: boolean;
-  result: any;
-  agent: AgentRole;
-  reasoning?: string;
-  nextTasks?: Task[];
+  result?: any;
+  error?: string;
 }
 
 /**
- * CrewAI-Inspired Orchestrator
- * Manages multiple AI agents working together
+ * EducationalCrew - CrewAI-inspired orchestrator for educational AI agents
+ * 
+ * This class manages a crew of specialized educational agents that work together
+ * to provide adaptive, personalized learning experiences for children.
+ * 
+ * Based on CrewAI principles:
+ * - Agent specialization with clear roles and capabilities
+ * - Task delegation based on agent expertise
+ * - Shared memory and context between agents
+ * - Collaborative decision making
+ * - Performance tracking and optimization
  */
 export class EducationalCrew {
-  private agents: Map<AgentRole, Agent> = new Map();
-  private memory: AgentMemory;
-  private azureAI: typeof azureOpenAIService;
-  private verbose: boolean;
-  private maxIterations: number;
+  private agents: Map<AgentRole, BaseAgent>;
+  private sharedMemory: Map<string, any>;
+  private taskHistory: TaskExecution[];
+  private config: CrewConfig;
 
-  constructor(config: CrewConfig) {
-    this.memory = config.memory;
-    this.verbose = config.verbose ?? false;
-    this.maxIterations = config.maxIterations ?? 10;
-    this.azureAI = azureOpenAIService;
+  constructor(config: CrewConfig = {}) {
+    this.config = {
+      verbose: false,
+      maxIterations: 10,
+      enableMemory: true,
+      fallbackStrategy: 'graceful',
+      ...config
+    };
 
-    // Register all agents
-    config.agents.forEach(agent => {
-      this.agents.set(agent.role, agent);
-      if (this.verbose) {
-        console.log(`🤖 Agent registered: ${agent.role} - ${agent.goal}`);
-      }
-    });
+    this.agents = new Map();
+    this.sharedMemory = new Map();
+    this.taskHistory = [];
+
+    this.initializeCrew();
+  }
+
+  private initializeCrew(): void {
+    // Registrar todos los agentes especializados
+    this.agents.set('learning_coach', new LearningCoach());
+    this.agents.set('motivation_specialist', new MotivationAgent());
+    this.agents.set('analytics_expert', new AnalyticsAgent());
+    this.agents.set('language_specialist', new LanguageAgent());
+    this.agents.set('memory_keeper', new MemoryAgent());
+
+    this.log('EducationalCrew initialized with 5 specialized agents');
   }
 
   /**
-   * Execute a task with the crew
-   * Uses CrewAI-style delegation and collaboration
+   * Ejecuta una tarea asignándola al agente más apropiado
    */
-  async executeTask(task: Task): Promise<TaskResult> {
-    const startTime = Date.now();
-    
-    if (this.verbose) {
-      console.log(`🚀 Crew executing task: ${task.description}`);
-    }
+  async executeTask(task: Task): Promise<any> {
+    const taskId = this.generateTaskId();
+    this.log(`Executing task: ${task.type} (ID: ${taskId})`);
 
     try {
-      // 1. Select best agent for the task
-      const selectedAgent = this.selectAgentForTask(task);
+      // Seleccionar el mejor agente para la tarea
+      const agent = this.selectBestAgent(task);
       
-      if (!selectedAgent) {
-        throw new Error(`No suitable agent found for task: ${task.type}`);
+      if (!agent) {
+        throw new Error(`No suitable agent found for task type: ${task.type}`);
       }
 
-      // 2. Prepare context with crew memory
-      const context = this.prepareContext(task, selectedAgent);
-      
-      // 3. Execute task with selected agent
-      const result = await this.executeWithAgent(selectedAgent, task, context);
-      
-      // 4. Update crew memory
-      await this.updateCrewMemory(task, result, selectedAgent);
-      
-      // 5. Determine if collaboration is needed
-      const nextTasks = await this.planNextTasks(result, task);
+      // Enriquecer la tarea con contexto compartido
+      const enrichedTask = this.enrichTaskWithContext(task);
 
-      const executionTime = Date.now() - startTime;
+      // Ejecutar la tarea
+      const execution = this.startTaskExecution(taskId, agent.role);
       
-      if (this.verbose) {
-        console.log(`✅ Task completed by ${selectedAgent.role} in ${executionTime}ms`);
+      const result = await agent.processTask(enrichedTask);
+      
+      this.completeTaskExecution(execution, true, result);
+
+      // Actualizar memoria compartida si la tarea fue exitosa
+      if (result.success && this.config.enableMemory) {
+        await this.updateSharedMemory(taskId, task, result, agent.role);
       }
 
+      this.log(`Task completed successfully by ${agent.role}: ${result.reasoning}`);
+      
       return {
-        success: true,
-        result: result.content,
-        agent: selectedAgent.role,
-        reasoning: result.reasoning,
-        nextTasks
+        taskId,
+        agent: agent.role,
+        result,
+        executionTime: execution.endTime! - execution.startTime,
+        success: true
       };
 
     } catch (error) {
-      if (this.verbose) {
-        console.error(`❌ Crew task failed:`, error);
-      }
+      this.log(`Task execution failed: ${error}`);
       
-      return {
-        success: false,
-        result: null,
-        agent: 'unknown' as AgentRole,
-        reasoning: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
+      if (this.config.fallbackStrategy === 'graceful') {
+        return this.handleTaskFailure(taskId, task, error);
+      } else {
+        throw error;
+      }
     }
   }
 
   /**
-   * CrewAI-style agent selection based on task requirements
+   * Orquestación de múltiples tareas relacionadas
    */
-  private selectAgentForTask(task: Task): Agent | null {
-    // Primary agent selection based on task type
-    const primaryCandidates = Array.from(this.agents.values())
-      .filter(agent => agent.capabilities.includes(task.type));
-
-    if (primaryCandidates.length === 0) {
-      // Fallback: select agent with most relevant tools
-      const fallbackCandidates = Array.from(this.agents.values())
-        .filter(agent => 
-          agent.tools.some(tool => task.requiredTools?.includes(tool))
-        );
+  async orchestrateWorkflow(workflow: Task[]): Promise<any[]> {
+    this.log(`Starting workflow orchestration with ${workflow.length} tasks`);
+    
+    const results = [];
+    
+    for (const task of workflow) {
+      const result = await this.executeTask(task);
+      results.push(result);
       
-      return fallbackCandidates[0] || null;
+      // Si una tarea crítica falla, detener el workflow
+      if (!result.success && task.priority === 'high') {
+        this.log(`Workflow stopped due to critical task failure: ${task.type}`);
+        break;
+      }
     }
 
-    // Select best candidate based on success rate and experience
-    return primaryCandidates.reduce((best, current) => {
-      const bestScore = this.calculateAgentScore(best, task);
-      const currentScore = this.calculateAgentScore(current, task);
-      return currentScore > bestScore ? current : best;
-    });
-  }
-
-  private calculateAgentScore(agent: Agent, task: Task): number {
-    let score = 0;
-    
-    // Experience with this task type
-    const taskHistory = this.memory.taskHistory.filter(
-      h => h.agentRole === agent.role && h.taskType === task.type
-    );
-    const successRate = taskHistory.length > 0 
-      ? taskHistory.filter(h => h.successful).length / taskHistory.length 
-      : 0.5;
-    
-    score += successRate * 50;
-    
-    // Tool compatibility
-    const toolMatch = task.requiredTools?.every(tool => 
-      agent.tools.includes(tool)
-    ) ?? true;
-    score += toolMatch ? 30 : 0;
-    
-    // Recent performance
-    const recentTasks = taskHistory.slice(-5);
-    const recentSuccessRate = recentTasks.length > 0
-      ? recentTasks.filter(h => h.successful).length / recentTasks.length
-      : 0.5;
-    score += recentSuccessRate * 20;
-    
-    return score;
+    return results;
   }
 
   /**
-   * Prepare context with crew memory and collaboration history
+   * Ejecuta múltiples tareas en paralelo cuando es posible
    */
-  private prepareContext(task: Task, agent: Agent): AgentContext {
+  async executeParallelTasks(tasks: Task[]): Promise<any[]> {
+    this.log(`Executing ${tasks.length} tasks in parallel`);
+    
+    const taskPromises = tasks.map(task => this.executeTask(task));
+    
+    try {
+      const results = await Promise.allSettled(taskPromises);
+      
+      return results.map((result, index) => {
+        if (result.status === 'fulfilled') {
+          return result.value;
+        } else {
+          this.log(`Parallel task ${tasks[index].type} failed: ${result.reason}`);
+          return {
+            taskId: this.generateTaskId(),
+            agent: 'none',
+            result: { success: false, error: result.reason },
+            success: false
+          };
+        }
+      });
+    } catch (error) {
+      this.log(`Parallel execution failed: ${error}`);
+      throw error;
+    }
+  }
+
+  private selectBestAgent(task: Task): BaseAgent | null {
+    // Lógica de selección basada en capacidades y rendimiento
+    for (const [role, agent] of this.agents) {
+      if (agent.capabilities.includes(task.type)) {
+        // Verificar rendimiento histórico del agente para este tipo de tarea
+        const performance = this.getAgentPerformance(role, task.type);
+        
+        if (performance.successRate > 0.7 || performance.attempts === 0) {
+          return agent;
+        }
+      }
+    }
+
+    // Fallback: retornar el primer agente que pueda manejar la tarea
+    for (const [, agent] of this.agents) {
+      if (agent.capabilities.includes(task.type)) {
+        return agent;
+      }
+    }
+
+    return null;
+  }
+
+  private enrichTaskWithContext(task: Task): Task {
+    // Añadir contexto de memoria compartida
+    const contextFromMemory = this.sharedMemory.get('current_context') || {};
+    const recentTaskResults = this.getRecentTaskResults(3);
+    
     return {
-      task,
-      childProfile: this.memory.childProfile,
-      sessionHistory: this.memory.sessionHistory.slice(-10), // Last 10 interactions
-      agentMemory: this.memory.agentMemories.get(agent.role) || {},
-      collaborationHistory: this.memory.taskHistory
-        .filter(h => h.taskType === task.type)
-        .slice(-5), // Last 5 similar tasks
-      currentSession: {
-        startTime: Date.now(),
-        interactions: [],
-        mood: this.memory.childProfile.currentMood,
-        attentionLevel: this.memory.childProfile.attentionLevel
+      ...task,
+      metadata: {
+        ...task.metadata,
+        sharedContext: contextFromMemory,
+        recentResults: recentTaskResults,
+        timestamp: Date.now()
       }
     };
   }
 
-  /**
-   * Execute task with selected agent using Azure OpenAI
-   */
-  private async executeWithAgent(
-    agent: Agent, 
-    task: Task, 
-    context: AgentContext
-  ): Promise<{ content: any; reasoning: string }> {
-    const contextString = `${task.description} for ${context.childProfile.name} (age ${context.childProfile.age})`;
-    
-    const response = await this.azureAI.generateChildResponse(
-      context.childProfile.name,
-      context.childProfile.age,
-      contextString,
-      context.childProfile.languagePreference === 'english' ? 'en' : 'es'
-    );
+  private async updateSharedMemory(taskId: string, task: Task, result: any, agentRole: AgentRole): Promise<void> {
+    // Actualizar contexto basado en el resultado de la tarea
+    if (result.data) {
+      // Memoria específica por tipo de tarea
+      const memoryKey = `${task.type}_results`;
+      const existingResults = this.sharedMemory.get(memoryKey) || [];
+      
+      existingResults.push({
+        taskId,
+        timestamp: Date.now(),
+        result: result.data,
+        agent: agentRole,
+        confidence: result.confidence
+      });
 
-    return {
-      content: response,
-      reasoning: `Agent ${agent.role} used ${agent.backstory} to complete ${task.type}`
-    };
-  }
+      // Mantener solo los últimos 10 resultados por tipo
+      if (existingResults.length > 10) {
+        existingResults.splice(0, existingResults.length - 10);
+      }
 
-  /**
-   * Build CrewAI-style prompt with role, goal, and backstory
-   */
-  private buildCrewPrompt(agent: Agent, task: Task, context: AgentContext): string {
-    return `
-# AGENT PROFILE
-Role: ${agent.role}
-Goal: ${agent.goal}
-Backstory: ${agent.backstory}
+      this.sharedMemory.set(memoryKey, existingResults);
+    }
 
-# TASK
-Type: ${task.type}
-Description: ${task.description}
-Priority: ${task.priority}
-
-# CHILD CONTEXT
-Age: ${context.childProfile.age}
-Name: ${context.childProfile.name}
-Current Mood: ${context.currentSession.mood}
-Attention Level: ${context.currentSession.attentionLevel}
-Learning Style: ${context.childProfile.learningStyle}
-
-# RECENT INTERACTIONS
-${context.sessionHistory.slice(-3).map(h => 
-  `- ${h.type}: ${h.description} (Success: ${h.successful})`
-).join('\n')}
-
-# CREW MEMORY
-${context.collaborationHistory.slice(-2).map(h =>
-  `- Previous ${h.taskType} by ${h.agentRole}: ${h.successful ? 'Success' : 'Failed'}`
-).join('\n')}
-
-# INSTRUCTIONS
-As the ${agent.role}, use your expertise to complete this task effectively.
-Consider the child's current state and previous interactions.
-Collaborate with the crew's shared knowledge.
-Provide a response that aligns with your role and goal.
-
-# RESPONSE FORMAT
-Provide your response as JSON with appropriate structure for task type "${task.type}".
-`;
-  }
-
-  /**
-   * Update crew memory with task results
-   */
-  private async updateCrewMemory(
-    task: Task, 
-    result: any, 
-    agent: Agent
-  ): Promise<void> {
-    // Update task history
-    this.memory.taskHistory.push({
-      timestamp: Date.now(),
+    // Actualizar contexto general
+    this.sharedMemory.set('last_execution', {
+      taskId,
       taskType: task.type,
-      agentRole: agent.role,
-      successful: result !== null,
-      result,
-      childResponse: null // Will be updated later
-    });
-
-    // Update agent-specific memory
-    const agentMemory = this.memory.agentMemories.get(agent.role) || {};
-    agentMemory[`last_${task.type}`] = {
-      result,
+      agent: agentRole,
       timestamp: Date.now(),
-      successful: result !== null
-    };
-    this.memory.agentMemories.set(agent.role, agentMemory);
-
-    // Maintain memory size limits
-    if (this.memory.taskHistory.length > 100) {
-      this.memory.taskHistory = this.memory.taskHistory.slice(-50);
-    }
-  }
-
-  /**
-   * Plan next tasks based on results (CrewAI-style task chains)
-   */
-  private async planNextTasks(result: any, originalTask: Task): Promise<Task[]> {
-    const nextTasks: Task[] = [];
-
-    // Example: If learning coach creates hint, motivation agent should prepare celebration
-    if (originalTask.type === 'generate_hint' && result) {
-      nextTasks.push({
-        type: 'prepare_celebration',
-        description: 'Prepare celebration for when child uses the hint successfully',
-        priority: 'medium',
-        requiredTools: ['celebration_generator', 'tts_engine']
-      });
-    }
-
-    // Example: If analytics agent detects struggle, learning coach should adapt
-    if (originalTask.type === 'analyze_performance' && result?.needsAdaptation) {
-      nextTasks.push({
-        type: 'adapt_difficulty',
-        description: 'Adjust game difficulty based on performance analysis',
-        priority: 'high',
-        requiredTools: ['difficulty_adapter', 'azure_openai']
-      });
-    }
-
-    return nextTasks;
-  }
-
-  /**
-   * Get crew status and performance metrics
-   */
-  getCrewStatus() {
-    const agentStats = Array.from(this.agents.entries()).map(([role, agent]) => {
-      const agentTasks = this.memory.taskHistory.filter(h => h.agentRole === role);
-      const successRate = agentTasks.length > 0 
-        ? agentTasks.filter(h => h.successful).length / agentTasks.length 
-        : 0;
-
-      return {
-        role,
-        goal: agent.goal,
-        tasksCompleted: agentTasks.length,
-        successRate: Math.round(successRate * 100),
-        lastActive: agentTasks.length > 0 
-          ? new Date(agentTasks[agentTasks.length - 1].timestamp).toISOString()
-          : 'Never'
-      };
+      success: result.success
     });
 
+    // Si hay un MemoryAgent, usar su capacidad de memoria especializada
+    if (task.type !== 'update_memory') {
+      const memoryTask: Task = {
+        type: 'update_memory',
+        description: 'Update memory with task execution results',
+        priority: 'low',
+        metadata: {
+          taskExecution: { taskId, task, result, agentRole },
+          context: 'crew_orchestration'
+        }
+      };
+
+      try {
+        const memoryAgent = this.agents.get('memory_keeper');
+        if (memoryAgent) {
+          await memoryAgent.processTask(memoryTask);
+        }
+      } catch (error) {
+        this.log(`Failed to update specialized memory: ${error}`);
+      }
+    }
+  }
+
+  private getAgentPerformance(agentRole: AgentRole, taskType: TaskType): { successRate: number, attempts: number } {
+    const agentTasks = this.taskHistory.filter(
+      execution => execution.agentRole === agentRole && 
+      execution.taskId.includes(taskType) // Simplificado para esta implementación
+    );
+
+    if (agentTasks.length === 0) {
+      return { successRate: 1.0, attempts: 0 }; // Beneficio de la duda para agentes nuevos
+    }
+
+    const successful = agentTasks.filter(task => task.success).length;
     return {
-      crewSize: this.agents.size,
-      totalTasks: this.memory.taskHistory.length,
-      agentStats,
-      memorySize: this.memory.sessionHistory.length,
-      lastActivity: this.memory.taskHistory.length > 0
-        ? new Date(this.memory.taskHistory[this.memory.taskHistory.length - 1].timestamp).toISOString()
-        : 'Never'
+      successRate: successful / agentTasks.length,
+      attempts: agentTasks.length
     };
+  }
+
+  private getRecentTaskResults(limit: number): any[] {
+    return this.taskHistory
+      .slice(-limit)
+      .map(execution => ({
+        taskType: execution.taskId.split('_')[0], // Simplificado
+        agent: execution.agentRole,
+        success: execution.success,
+        timestamp: execution.startTime
+      }));
+  }
+
+  private startTaskExecution(taskId: string, agentRole: AgentRole): TaskExecution {
+    const execution: TaskExecution = {
+      taskId,
+      agentRole,
+      startTime: Date.now(),
+      success: false
+    };
+
+    this.taskHistory.push(execution);
+    return execution;
+  }
+
+  private completeTaskExecution(execution: TaskExecution, success: boolean, result?: any): void {
+    execution.endTime = Date.now();
+    execution.success = success;
+    execution.result = result;
+  }
+
+  private handleTaskFailure(taskId: string, task: Task, error: any): any {
+    this.log(`Handling task failure gracefully: ${task.type}`);
+    
+    return {
+      taskId,
+      agent: 'none',
+      result: {
+        success: false,
+        data: null,
+        reasoning: `Task failed: ${error.message || error}`,
+        confidence: 0
+      },
+      success: false,
+      error: error.message || error
+    };
+  }
+
+  private generateTaskId(): string {
+    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private log(message: string): void {
+    if (this.config.verbose) {
+      console.log(`[EducationalCrew] ${message}`);
+    }
+  }
+
+  // Métodos públicos para interacción con el crew
+
+  /**
+   * Obtiene estadísticas del rendimiento del crew
+   */
+  getCrewStats(): any {
+    const totalTasks = this.taskHistory.length;
+    const successfulTasks = this.taskHistory.filter(t => t.success).length;
+    
+    return {
+      totalTasks,
+      successRate: totalTasks > 0 ? successfulTasks / totalTasks : 0,
+      agentStats: this.getAgentStats(),
+      memorySize: this.sharedMemory.size,
+      averageExecutionTime: this.calculateAverageExecutionTime()
+    };
+  }
+
+  private getAgentStats(): Record<string, any> {
+    const stats: Record<string, any> = {};
+    
+    for (const [role] of this.agents) {
+      const agentTasks = this.taskHistory.filter(t => t.agentRole === role);
+      const successful = agentTasks.filter(t => t.success).length;
+      
+      stats[role] = {
+        totalTasks: agentTasks.length,
+        successRate: agentTasks.length > 0 ? successful / agentTasks.length : 0,
+        averageExecutionTime: this.calculateAgentAverageTime(role)
+      };
+    }
+    
+    return stats;
+  }
+
+  private calculateAverageExecutionTime(): number {
+    const completedTasks = this.taskHistory.filter(t => t.endTime);
+    
+    if (completedTasks.length === 0) return 0;
+    
+    const totalTime = completedTasks.reduce((sum, task) => 
+      sum + (task.endTime! - task.startTime), 0);
+    
+    return totalTime / completedTasks.length;
+  }
+
+  private calculateAgentAverageTime(agentRole: AgentRole): number {
+    const agentTasks = this.taskHistory.filter(t => 
+      t.agentRole === agentRole && t.endTime
+    );
+    
+    if (agentTasks.length === 0) return 0;
+    
+    const totalTime = agentTasks.reduce((sum, task) => 
+      sum + (task.endTime! - task.startTime), 0);
+    
+    return totalTime / agentTasks.length;
+  }
+
+  /**
+   * Limpia el historial de tareas y memoria compartida
+   */
+  clearHistory(): void {
+    this.taskHistory = [];
+    this.sharedMemory.clear();
+    this.log('Crew history and shared memory cleared');
+  }
+
+  /**
+   * Obtiene información sobre los agentes disponibles
+   */
+  getAvailableAgents(): Array<{ role: AgentRole, capabilities: TaskType[] }> {
+    const agentInfo = [];
+    
+    for (const [role, agent] of this.agents) {
+      agentInfo.push({
+        role,
+        capabilities: agent.capabilities
+      });
+    }
+    
+    return agentInfo;
+  }
+
+  /**
+   * Actualiza la configuración del crew
+   */
+  updateConfig(newConfig: Partial<CrewConfig>): void {
+    this.config = { ...this.config, ...newConfig };
+    this.log('Crew configuration updated');
   }
 }
+
+// Instancia singleton del crew educativo
+export const educationalCrew = new EducationalCrew({
+  verbose: __DEV__, // Solo verbose en desarrollo
+  enableMemory: true,
+  fallbackStrategy: 'graceful'
+});

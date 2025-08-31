@@ -3,17 +3,159 @@
  * Specialized in adapting difficulty and providing educational guidance
  */
 
-import { LearningCoachAgent, Task, AgentContext, TaskType, ToolName } from './types';
+import { BaseAgent, LearningCoachAgent, Task, AgentContext, TaskType, ToolName } from './types';
 import { azureOpenAIService } from '../services/azureOpenAIFixed';
 
-export class LearningCoach implements LearningCoachAgent {
+export class LearningCoach implements BaseAgent {
   role: 'learning_coach' = 'learning_coach';
   goal: string = 'Optimize learning experience by adapting difficulty and providing personalized educational guidance for each child';
   backstory: string = 'I am an experienced educational specialist with deep knowledge of child development psychology and adaptive learning techniques. I understand how children ages 3-6 learn best and can adjust teaching methods in real-time based on their responses.';
   capabilities: TaskType[] = ['generate_hint', 'adapt_difficulty', 'provide_feedback', 'suggest_next_activity'];
   tools: ToolName[] = ['azure_openai', 'difficulty_adapter', 'performance_analyzer'];
-  specialization: 'difficulty_adaptation' | 'concept_introduction' | 'skill_building' = 'difficulty_adaptation';
-  verbose?: boolean = false;
+  verbose = false;
+
+  // Implementación del método requerido por BaseAgent
+  async processTask(task: Task): Promise<any> {
+    try {
+      console.log(`[LearningCoach] Processing task: ${task.type}`);
+      
+      switch (task.type) {
+        case 'generate_hint':
+          return await this.generateTaskHint(task);
+        case 'adapt_difficulty':
+          return await this.adaptTaskDifficulty(task);
+        case 'provide_feedback':
+          return await this.provideTaskFeedback(task);
+        case 'suggest_next_activity':
+          return await this.suggestTaskActivity(task);
+        default:
+          return {
+            success: false,
+            data: null,
+            reasoning: `LearningCoach cannot handle task type: ${task.type}`,
+            confidence: 0
+          };
+      }
+    } catch (error) {
+      console.error('[LearningCoach] Error processing task:', error);
+      return {
+        success: false,
+        data: null,
+        reasoning: `Task failed: ${error}`,
+        confidence: 0
+      };
+    }
+  }
+
+  private async generateTaskHint(task: Task): Promise<any> {
+    // Implementación simplificada para hint generation
+    const metadata = task.metadata || {};
+    const { childAge = 5, concept = 'colors', language = 'es' } = metadata;
+
+    try {
+      const hint = await azureOpenAIService.generateChildResponse(
+        'amiguito',
+        childAge,
+        `Ayuda al niño a entender ${concept}. Da una pista simple y divertida.`,
+        language as 'es' | 'en'
+      );
+
+      return {
+        success: true,
+        data: {
+          type: 'hint',
+          message: hint,
+          concept,
+          difficulty: 'adaptive'
+        },
+        reasoning: `Generated hint for ${concept} concept`,
+        confidence: 0.8
+      };
+    } catch (error) {
+      return {
+        success: true,
+        data: {
+          type: 'hint',
+          message: language === 'es' ? '¡Mira bien los colores! 🌈' : 'Look carefully at the colors! 🌈',
+          concept,
+          difficulty: 'basic'
+        },
+        reasoning: 'Fallback hint due to AI service error',
+        confidence: 0.6
+      };
+    }
+  }
+
+  private async adaptTaskDifficulty(task: Task): Promise<any> {
+    const metadata = task.metadata || {};
+    const { performance = {}, sessionData = {} } = metadata;
+
+    const accuracy = performance.accuracy || 0.5;
+    let newDifficulty = 'medium';
+    
+    if (accuracy > 0.8) {
+      newDifficulty = 'hard';
+    } else if (accuracy < 0.4) {
+      newDifficulty = 'easy';
+    }
+
+    return {
+      success: true,
+      data: {
+        type: 'difficulty_adaptation',
+        newDifficulty,
+        reason: `Adjusted based on ${(accuracy * 100).toFixed(1)}% accuracy`,
+        adjustmentType: 'performance_based'
+      },
+      reasoning: `Difficulty adapted from performance data`,
+      confidence: 0.9
+    };
+  }
+
+  private async provideTaskFeedback(task: Task): Promise<any> {
+    const metadata = task.metadata || {};
+    const { isCorrect = true, language = 'es' } = metadata;
+
+    const feedback = isCorrect 
+      ? (language === 'es' ? '¡Muy bien! 🎉' : 'Great job! 🎉')
+      : (language === 'es' ? '¡Inténtalo otra vez! 💪' : 'Try again! 💪');
+
+    return {
+      success: true,
+      data: {
+        type: 'feedback',
+        message: feedback,
+        isPositive: isCorrect
+      },
+      reasoning: `Provided ${isCorrect ? 'positive' : 'encouraging'} feedback`,
+      confidence: 1.0
+    };
+  }
+
+  private async suggestTaskActivity(task: Task): Promise<any> {
+    const metadata = task.metadata || {};
+    const { currentConcept = 'colors', masteryLevel = 0.5 } = metadata;
+
+    let suggestion = 'continue_practice';
+    
+    if (masteryLevel > 0.8) {
+      suggestion = 'advance_to_shapes';
+    } else if (masteryLevel < 0.3) {
+      suggestion = 'review_basics';
+    }
+
+    return {
+      success: true,
+      data: {
+        type: 'activity_suggestion',
+        suggestion,
+        nextConcept: masteryLevel > 0.8 ? 'shapes' : currentConcept,
+        reasoning: `Based on ${(masteryLevel * 100).toFixed(1)}% mastery`
+      },
+      reasoning: `Suggested next activity based on mastery level`,
+      confidence: 0.8
+    };
+  }
 
   /**
    * Analyze current difficulty and recommend adjustments
@@ -251,3 +393,5 @@ Attention level: ${child.attentionLevel}.`;
     return recentInteractions.filter((i: any) => i.successful).length / recentInteractions.length;
   }
 }
+
+export const learningCoach = new LearningCoach();

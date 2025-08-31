@@ -55,7 +55,6 @@ export interface BaseAgent {
   capabilities: TaskType[];
   tools: ToolName[];
   verbose?: boolean;
-  processTask(task: Task): Promise<any>;
 }
 
 // Child Profile & Learning Data
