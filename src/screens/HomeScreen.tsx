@@ -92,6 +92,62 @@ const HomeScreen: React.FC = () => {
               <Text style={styles.difficultyText}>Desafío</Text>
             </View>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.gameCard, styles.numberGame]}
+            onPress={() => handleGamePress('number-recognition')}
+          >
+            <Text style={styles.gameEmoji}>🔢</Text>
+            <Text style={styles.gameTitle}>Number Recognition</Text>
+            <Text style={styles.gameDescription}>
+              Aprende números del 1 al 20
+            </Text>
+            <View style={styles.difficultyBadge}>
+              <Text style={styles.difficultyText}>Nuevo</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.gameCard, styles.memoryGame]}
+            onPress={() => handleGamePress('memory-game')}
+          >
+            <Text style={styles.gameEmoji}>🧠</Text>
+            <Text style={styles.gameTitle}>Memory Game</Text>
+            <Text style={styles.gameDescription}>
+              Encuentra los pares iguales
+            </Text>
+            <View style={styles.difficultyBadge}>
+              <Text style={styles.difficultyText}>Memoria</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.gameCard, styles.patternGame]}
+            onPress={() => handleGamePress('pattern-game')}
+          >
+            <Text style={styles.gameEmoji}>🎯</Text>
+            <Text style={styles.gameTitle}>Pattern Game</Text>
+            <Text style={styles.gameDescription}>
+              Memoriza y repite secuencias
+            </Text>
+            <View style={styles.difficultyBadge}>
+              <Text style={styles.difficultyText}>Patrón</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.gameCard, styles.audioGame]}
+            onPress={() => handleGamePress('audio-recognition')}
+          >
+            <Text style={styles.gameEmoji}>🎵</Text>
+            <Text style={styles.gameTitle}>Audio Recognition</Text>
+            <Text style={styles.gameDescription}>
+              Escucha y encuentra los sonidos
+            </Text>
+            <View style={styles.difficultyBadge}>
+              <Text style={styles.difficultyText}>Audio</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.progressSection}>
@@ -180,6 +236,22 @@ const styles = StyleSheet.create({
   mixedGame: {
     borderLeftWidth: 4,
     borderLeftColor: '#9b59b6',
+  },
+  numberGame: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#f39c12',
+  },
+  memoryGame: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#2ecc71',
+  },
+  patternGame: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#e67e22',
+  },
+  audioGame: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#1abc9c',
   },
   gameEmoji: {
     fontSize: 40,

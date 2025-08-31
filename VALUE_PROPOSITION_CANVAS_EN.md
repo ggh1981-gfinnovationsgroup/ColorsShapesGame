@@ -3,10 +3,10 @@
 
 ---
 
-## 🎯 **PROPUESTA DE VALOR CORE**
+## 🎯 **PROPUESTA DE VALOR CORE ACTUALIZADA**
 
 **Para Padres de Niños 3-6 años:**
-*"Convertimos el tiempo de pantalla en aprendizaje bilingüe efectivo con la primera app que enseña colores y formas perfectamente en dos idiomas, con una experiencia tan pulida que tanto tú como tu hijo van a querer usarla todos los días."*
+*"Hemos creado la primera app educativa bilingüe completa que enseña colores, formas Y números con 7 juegos diferentes, una experiencia tan pulida y educativa que tanto tú como tu hijo van a querer usarla todos los días. No es solo aprendizaje, es diversión educativa premium."*
 
 ---
 
@@ -85,12 +85,20 @@
 
 ### 🚀 **PRODUCTOS & SERVICIOS**
 
-#### **Productos Core:**
-1. **App "Tap the Color"** - Juego principal de identificación de colores
-2. **App "Shape Match"** - Juego de reconocimiento de formas
-3. **Sistema TTS bilingüe** - Audio perfecto en español e inglés
-4. **Interfaz adaptativa** - UI que se ajusta automáticamente por edad
-5. **Sistema de progreso** - Tracking visual de avances y logros
+#### **Productos Core Expandidos:**
+1. **7 Juegos Educativos Completos** - Suite integral de aprendizaje
+   - Tap the Color (30+ colores)
+   - Shape Match (formas básicas y avanzadas)  
+   - Color & Shapes Mix (combinación avanzada)
+   - Number Recognition (números 0-20)
+   - Memory Game (desarrollo cognitivo)
+   - Pattern Game (secuencias y memoria)
+   - Audio Recognition (sonidos del mundo real)
+
+2. **Sistema TTS bilingüe avanzado** - Audio perfecto en todos los juegos
+3. **Interfaz adaptativa por edad** - UI que evoluciona (3-6 años)
+4. **Sistema de progreso gamificado** - Tracking visual y recompensas
+5. **Base de datos educativa extensa** - 30+ colores, 20+ números, múltiples categorías
 
 #### **Servicios Digitales:**
 6. **Experiencia offline-first** - Funciona sin internet
