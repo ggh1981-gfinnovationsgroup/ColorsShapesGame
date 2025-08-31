@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store';
-import { azureOpenAIService } from '../services/azureOpenAIFixed';
 
 export interface GameState {
   status: 'idle' | 'playing' | 'paused' | 'completed' | 'failed';
@@ -11,9 +10,6 @@ export interface GameState {
   streak: number;
   mistakes: number;
   isLoading: boolean;
-  aiHint: string | null;
-  aiCelebration: string | null;
-  aiFeedback: string | null;
 }
 
 export interface GameConfig {
@@ -33,10 +29,6 @@ export interface GameActions {
   addMistake: () => void;
   nextLevel: () => void;
   resetStreak: () => void;
-  getAIHint: (targetColor: string, targetColorSpanish: string) => Promise<void>;
-  generateAICelebration: (achievement: 'correct_answer' | 'level_up' | 'high_score' | 'no_mistakes') => Promise<void>;
-  generateAIFeedback: (gameContext: { correctAnswers: number; mistakes: number; timeSpent: number; difficulty: 'easy' | 'medium' | 'hard' }) => Promise<void>;
-  clearAIMessages: () => void;
 }
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -62,9 +54,6 @@ export const useGameEngine = (customConfig?: Partial<GameConfig>) => {
     streak: 0,
     mistakes: 0,
     isLoading: false,
-    aiHint: null,
-    aiCelebration: null,
-    aiFeedback: null,
   });
 
   // Timer effect
@@ -128,9 +117,6 @@ export const useGameEngine = (customConfig?: Partial<GameConfig>) => {
       streak: 0,
       mistakes: 0,
       isLoading: false,
-      aiHint: null,
-      aiCelebration: null,
-      aiFeedback: null,
     });
   }, [config.maxTime]);
 
@@ -205,117 +191,6 @@ export const useGameEngine = (customConfig?: Partial<GameConfig>) => {
   };
 
   // AI-powered functions
-  const getAIHint = useCallback(async (targetColor: string, targetColorSpanish: string) => {
-    if (!activeChild) return;
-    
-    // No solicitar hint si ya hay uno activo
-    if (gameState.aiHint) return;
-    
-    try {
-      setGameState(prev => ({ ...prev, isLoading: true }));
-      
-      const hint = await azureOpenAIService.generateColorHint(
-        activeChild.name,
-        activeChild.age,
-        targetColor,
-        targetColorSpanish,
-        gameState.mistakes,
-        'es'
-      );
-      
-      setGameState(prev => ({ 
-        ...prev, 
-        aiHint: hint,
-        isLoading: false 
-      }));
-    } catch (error) {
-      console.error('Error getting AI hint:', error);
-      setGameState(prev => ({ 
-        ...prev, 
-        aiHint: '¡Puedes hacerlo! 🌈',
-        isLoading: false 
-      }));
-    }
-  }, [activeChild, gameState.mistakes, gameState.aiHint]);
-
-  const generateAICelebration = useCallback(async (achievement: 'correct_answer' | 'level_up' | 'high_score' | 'no_mistakes') => {
-    if (!activeChild) return;
-    
-    // No generar celebración si ya hay una activa
-    if (gameState.aiCelebration) return;
-    
-    try {
-      const celebration = await azureOpenAIService.generateCelebration(
-        activeChild.name,
-        activeChild.age,
-        achievement,
-        gameState.score,
-        gameState.level,
-        'es'
-      );
-      
-      setGameState(prev => ({ 
-        ...prev, 
-        aiCelebration: celebration 
-      }));
-      
-      // Auto-clear celebration after 4 seconds
-      setTimeout(() => {
-        setGameState(prev => ({ 
-          ...prev, 
-          aiCelebration: null 
-        }));
-      }, 4000);
-    } catch (error) {
-      console.error('Error generating AI celebration:', error);
-      setGameState(prev => ({ 
-        ...prev, 
-        aiCelebration: '¡Excelente! 🎉' 
-      }));
-      
-      // Auto-clear fallback after 3 seconds
-      setTimeout(() => {
-        setGameState(prev => ({ 
-          ...prev, 
-          aiCelebration: null 
-        }));
-      }, 3000);
-    }
-  }, [activeChild, gameState.score, gameState.level, gameState.aiCelebration]);
-
-  const generateAIFeedback = useCallback(async (gameContext: { correctAnswers: number; mistakes: number; timeSpent: number; difficulty: 'easy' | 'medium' | 'hard' }) => {
-    if (!activeChild) return;
-    
-    try {
-      const feedback = await azureOpenAIService.generateMotivationalFeedback(
-        activeChild.name,
-        activeChild.age,
-        gameContext,
-        'es'
-      );
-      
-      setGameState(prev => ({ 
-        ...prev, 
-        aiFeedback: feedback 
-      }));
-    } catch (error) {
-      console.error('Error generating AI feedback:', error);
-      setGameState(prev => ({ 
-        ...prev, 
-        aiFeedback: '¡Buen trabajo! 👏' 
-      }));
-    }
-  }, [activeChild]);
-
-  const clearAIMessages = useCallback(() => {
-    setGameState(prev => ({ 
-      ...prev, 
-      aiHint: null,
-      aiCelebration: null,
-      aiFeedback: null 
-    }));
-  }, []);
-
   const actions: GameActions = {
     startGame,
     pauseGame,
@@ -326,10 +201,6 @@ export const useGameEngine = (customConfig?: Partial<GameConfig>) => {
     addMistake,
     nextLevel,
     resetStreak,
-    getAIHint,
-    generateAICelebration,
-    generateAIFeedback,
-    clearAIMessages,
   };
 
   return {

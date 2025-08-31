@@ -21,7 +21,6 @@
     "expo": "~53.0.22",
     "expo-speech": "^13.1.7",
     "expo-status-bar": "~2.2.3",
-    "openai": "^5.16.0",
     "react": "19.0.0",
     "react-native": "0.79.6",
     "react-native-dotenv": "^3.4.11",

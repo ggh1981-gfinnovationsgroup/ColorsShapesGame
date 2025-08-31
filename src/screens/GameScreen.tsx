@@ -16,7 +16,6 @@ import type { RootStackParamList } from '../types';
 import { useGameEngine } from '../hooks/useGameEngine';
 import { useAppStore } from '../store';
 import * as Speech from 'expo-speech';
-import { educationalCrew } from '../agents/crew';
 
 type GameNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Game'>;
 type GameRouteProp = RouteProp<RootStackParamList, 'Game'>;
@@ -91,31 +90,17 @@ const GameScreen: React.FC = () => {
     }
   };
 
-  // Enhanced feedback using Multi-Agent CrewAI System
-  const getAgenticFeedback = async (actionType: 'correct' | 'incorrect' | 'hint' | 'celebration') => {
-    try {
-      const task = {
-        id: `game_${Date.now()}`,
-        type: actionType as any,
-        description: `Educational feedback for ${actionType} action`,
-        context: {
-          targetColor: targetColor.name,
-          targetColorEs: targetColor.nameEs,
-          playerAge: activeChild?.age || 4,
-          currentLevel: gameState.level,
-          mistakes: gameState.mistakes,
-          score: gameState.score
-        },
-        priority: 'high' as const,
-        requiredCapabilities: [] as any[]
-      };
-
-      const result = await educationalCrew.executeTask(task);
-      return result.output;
-    } catch (error) {
-      console.warn('Agentic feedback error:', error);
-      return null;
-    }
+  // Simple feedback without AI
+  const getSimpleFeedback = (actionType: 'correct' | 'incorrect' | 'hint' | 'celebration') => {
+    const feedbackMessages = {
+      correct: ['¡Muy bien!', 'Great job!', '¡Excelente!', 'Perfect!'],
+      incorrect: ['Inténtalo de nuevo', 'Try again', 'Casi lo logras', 'Almost there!'],
+      hint: ['Busca el color', 'Look for the color', 'Encuentra', 'Find it'],
+      celebration: ['¡Fantástico!', 'Amazing!', '¡Increíble!', 'Wonderful!']
+    };
+    
+    const messages = feedbackMessages[actionType] || feedbackMessages.correct;
+    return messages[Math.floor(Math.random() * messages.length)];
   };
 
   // Get age-appropriate number of colors
@@ -141,38 +126,43 @@ const GameScreen: React.FC = () => {
     // Use agentic instruction occasionally (every 3rd round) for variety
     setTimeout(() => {
       if (gameState.level % 3 === 0) {
-        speakAgenticInstruction(randomTarget);
+        speakSimpleInstruction(randomTarget);
       } else {
         speakColorInstruction(randomTarget);
       }
     }, 800);
   };
 
-  // Enhanced TTS with agentic feedback for special rounds
-  const speakAgenticInstruction = async (color: Color) => {
+  // Simple TTS instruction
+  const speakSimpleInstruction = async (color: Color) => {
     setIsReadingInstruction(true);
     
     try {
-      // Get personalized instruction from LanguageAgent
-      const agenticInstruction = await getAgenticFeedback('hint');
-
-      if (agenticInstruction && agenticInstruction.trim().length > 0) {
-        // Use AI-generated instruction if available
-        console.log('🗣️ Agentic Instruction:', agenticInstruction);
-        
-        // Try to speak the agentic instruction
-        await Speech.speak(agenticInstruction, {
-          language: 'es-ES',
-          pitch: 1.1,
-          rate: 0.8,
-        });
-      } else {
-        // Fallback to original TTS
-        await speakColorInstruction(color);
-      }
+      // Simple bilingual instruction
+      const spanishText = `Toca el color ${color.nameEs}`;
+      const englishText = `Tap the ${color.name} color`;
+      
+      console.log('🗣️ Instruction:', `${spanishText} - ${englishText}`);
+      
+      // Speak Spanish first
+      await Speech.speak(spanishText, {
+        language: 'es-ES',
+        rate: 0.8,
+        pitch: 1.1,
+      });
+      
+      // Short pause
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Then English  
+      await Speech.speak(englishText, {
+        language: 'en-US',
+        rate: 0.8,
+        pitch: 1.1,
+      });
+      
     } catch (error) {
-      console.warn('Agentic TTS Error:', error);
-      await speakColorInstruction(color); // Fallback
+      console.error('TTS Error:', error);
     } finally {
       setIsReadingInstruction(false);
     }
@@ -187,13 +177,9 @@ const GameScreen: React.FC = () => {
       actions.addScore(gameState.level * 10);
       setCelebration(true);
       
-      // Get agentic celebration feedback
-      getAgenticFeedback('correct').then(agenticMessage => {
-        if (agenticMessage) {
-          console.log('🎉 Agentic Celebration:', agenticMessage);
-          // Aquí podrías mostrar el mensaje agentic en la UI
-        }
-      });
+      // Get simple celebration feedback
+      const celebrationMessage = getSimpleFeedback('correct');
+      console.log('🎉 Celebration:', celebrationMessage);
       
       // Celebration animation
       Animated.sequence([
@@ -215,14 +201,10 @@ const GameScreen: React.FC = () => {
       // Wrong answer
       actions.addMistake();
       
-      // Get agentic hint after 2 mistakes
+      // Get simple hint after 2 mistakes
       if (gameState.mistakes >= 2) {
-        getAgenticFeedback('hint').then(agenticHint => {
-          if (agenticHint) {
-            console.log('💡 Agentic Hint:', agenticHint);
-            // Aquí podrías mostrar el hint agentic en la UI
-          }
-        });
+        const hintMessage = getSimpleFeedback('hint');
+        console.log('💡 Hint:', hintMessage);
       }
       
       // Vibration/feedback for wrong answer
@@ -249,23 +231,21 @@ const GameScreen: React.FC = () => {
     }
   }, [gameState.status]);
 
-  // Handle game end with agentic feedback
+  // Handle game end with simple feedback
   useEffect(() => {
     if (gameState.status === 'completed' || gameState.status === 'failed') {
-      // Get final agentic assessment
-      getAgenticFeedback('celebration').then(agenticAssessment => {
-        const finalMessage = agenticAssessment || 
-          `Puntuación: ${gameState.score}\nNivel alcanzado: ${gameState.level}`;
-          
-        Alert.alert(
-          '¡Juego Terminado!',
-          finalMessage,
-          [
-            { text: 'Jugar de nuevo', onPress: () => actions.restartGame() },
-            { text: 'Salir', onPress: () => navigation.goBack() },
-          ]
-        );
-      });
+      // Get final simple assessment
+      const celebrationMessage = getSimpleFeedback('celebration');
+      const finalMessage = `${celebrationMessage}\nPuntuación: ${gameState.score}\nNivel alcanzado: ${gameState.level}`;
+        
+      Alert.alert(
+        '¡Juego Terminado!',
+        finalMessage,
+        [
+          { text: 'Jugar de nuevo', onPress: () => actions.restartGame() },
+          { text: 'Salir', onPress: () => navigation.goBack() },
+        ]
+      );
     }
   }, [gameState.status, gameState.score, gameState.level]);
 
